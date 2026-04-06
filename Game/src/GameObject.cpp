@@ -31,3 +31,7 @@ GameObject::GameObject(glm::vec2 pos, glm::vec2 size, const std::string& texture
 void GameObject::Draw(SpriteRenderer& renderer) {
     renderer.DrawSprite(*m_sprite, m_position, m_size, m_color, m_rotation);
 }   
+
+void GameObject::setSolid(bool isSolid) {
+    m_isSolid = isSolid;
+}

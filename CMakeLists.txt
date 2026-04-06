@@ -25,6 +25,7 @@ add_executable(breakout
     Game/src/main.cpp
     Game/src/Game.cpp
     Game/src/GameObject.cpp
+    Game/src/GameLevel.cpp
     Engine/src/Graphics/Shader.cpp
     Engine/src/Graphics/VertexBuffer.cpp
     Engine/src/Graphics/IndexBuffer.cpp

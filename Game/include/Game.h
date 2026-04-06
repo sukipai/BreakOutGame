@@ -12,10 +12,12 @@ enum class GameState : int {
 class Game {
     using uint = unsigned int;
 private:
-    GameState   State;
-    bool        Keys[1024];
-    uint        Width, Height;
+    GameState                       State;
+    bool                            Keys[1024];
+    uint                            Width, Height;
     std::unique_ptr<SpriteRenderer> renderer;
+    std::vector<class GameLevel>    levels;
+    uint                            level; 
     
 public:
     Game(uint width, uint height);
