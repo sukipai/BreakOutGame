@@ -13,6 +13,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 Game game(WINDOW_WIDTH, WINDOW_HEIGHT);
 
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
 int main() {
     Engine::Log::Init();
     if (!glfwInit()) {
@@ -39,7 +41,9 @@ int main() {
     }
 
     glfwSetKeyCallback(window, key_callback);
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -60,6 +64,7 @@ int main() {
         std::chrono::duration<float> duration = currentFrameTime - lastFrameTime;
         deltaTime = duration.count();
         lastFrameTime = currentFrameTime;
+
         glfwPollEvents();
 
         game.ProcessInput(deltaTime);
@@ -106,4 +111,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             game.setKey(key, false);
         }
     }
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
 }

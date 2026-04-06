@@ -5,6 +5,7 @@
 #include <Core/log.h>
 #include <GameLevel.h>
 #include <GameObject.h>
+#include <GLFW/glfw3.h>
 
 static const std::string SHADER_RESOURCES_PATH = "Game/Resources/Shaders/";
 static const std::string TEXTURE_RESOURCES_PATH = "Game/Resources/Textures/";
@@ -36,7 +37,9 @@ void Game::Init() {
     Engine::ResourceManager::LoadTexture("background", TEXTURE_RESOURCES_PATH + "background.jpg", false);
     Engine::ResourceManager::LoadTexture("block", TEXTURE_RESOURCES_PATH + "block.png");
     Engine::ResourceManager::LoadTexture("block_solid", TEXTURE_RESOURCES_PATH + "block_solid.png");
-    
+    Engine::ResourceManager::LoadTexture("paddle", TEXTURE_RESOURCES_PATH + "paddle.png", true);  
+
+    // 读取关卡信息
     GameLevel one;
     one.Load("Game/Resources/Levels/one.lvl", this->Width, this->Height * 0.5);
     GameLevel two;
@@ -50,11 +53,36 @@ void Game::Init() {
     levels.push_back(two);
     levels.push_back(three);
     levels.push_back(four);
-    level = 1;
+    level = 0;
+
+    // 设置玩家信息
+    glm::vec2 playerPos = glm::vec2(
+        this->Width / 2.0f - PLAYER_SIZE.x / 2, 
+        this->Height - PLAYER_SIZE.y
+    );
+
+    Player = std::make_unique<GameObject>(playerPos, PLAYER_SIZE, "paddle", glm::vec3(1.0f), glm::vec2(PLAYER_VELOCITY, 0.0f));
+
 }
 
 void Game::ProcessInput(float deltaTime) {
+    if (this->State == GameState::GAME_ACTIVE) {
+        glm::vec2 velocity = Player->velocity() * deltaTime;
+        glm::vec2 player_position = Player->position();
+        glm::vec2 player_size = Player->size();
 
+        if (this->Keys[GLFW_KEY_A]) {
+            player_position -= velocity;
+            if (player_position.x < 0) player_position.x = 0;
+        }
+
+        if (this->Keys[GLFW_KEY_D]) {
+            player_position += velocity;
+            if (player_position.x + player_size.x > this->Width) player_position.x = this->Width - player_size.x;
+        }
+
+        Player->setPosition(player_position);
+    }
 }
 
 void Game::Update(float deltaTime) {
@@ -65,12 +93,14 @@ void Game::Render() {
     if (this->State == GameState::GAME_ACTIVE) {
         auto background = Engine::ResourceManager::GetTexture("background");
         if (background.has_value()) {
-            renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(0.0f));
+            renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f));
         } else {
             APP_ERROR("Game::Render: 没有找到背景图片");
         }
 
         levels[level].Draw(*renderer.get());
+
+        Player->Draw(*renderer.get());
     }
 }
 

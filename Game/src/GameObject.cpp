@@ -35,3 +35,7 @@ void GameObject::Draw(SpriteRenderer& renderer) {
 void GameObject::setSolid(bool isSolid) {
     m_isSolid = isSolid;
 }
+
+void GameObject::setPosition(glm::vec2 position) {
+    m_position = position;
+}

@@ -19,9 +19,13 @@ public:
     GameObject(glm::vec2 pos, glm::vec2 size, const std::string& textureName = "", glm::vec3 color = glm::vec3(1.0f), glm::vec2 velocity = glm::vec2(0.0f, 0.0f));
 
     void setSolid(bool isSolid);
+    void setPosition(glm::vec2 position);
 
-    bool destroyed() { return m_destroyed; }
-    bool isSolid() { return m_isSolid; }
+    bool destroyed()           { return m_destroyed; }
+    bool isSolid()             { return m_isSolid; }
+    glm::vec2 velocity() const { return m_velocity; }
+    glm::vec2 position() const { return m_position; }
+    glm::vec2 size()     const { return m_size; }
 
     virtual void Draw(class SpriteRenderer& renderer);
 };
