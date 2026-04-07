@@ -39,3 +39,23 @@ void GameObject::setSolid(bool isSolid) {
 void GameObject::setPosition(glm::vec2 position) {
     m_position = position;
 }
+
+void GameObject::setVelocity(glm::vec2 velocity) {
+    m_velocity = velocity;
+}
+
+void GameObject::setSize(glm::vec2 size) {
+    m_size = size;
+}
+
+void GameObject::destroy() {
+    this->m_destroyed = true;
+}
+
+void GameObject::moveBy(float offsetX, float offsetY) {
+    this->m_position += glm::vec2(offsetX, offsetY);
+}
+
+void GameObject::moveBy(glm::vec2 offset) {
+    this->m_position += offset;
+}

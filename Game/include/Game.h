@@ -10,6 +10,15 @@ enum class GameState : int {
     GAME_WIN
 };
 
+enum class Direction : uint {
+    UP = 0,
+    RIGHT,
+    DOWN,
+    LEFT,
+
+    NONE
+};
+
 class Game {
     using uint = unsigned int;
 private:
@@ -20,12 +29,21 @@ private:
     std::vector<class GameLevel>        levels;
     uint                                level; 
 
+// 玩家
 private:
     std::unique_ptr<class GameObject>   Player;
     const glm::vec2                     PLAYER_SIZE{100, 20};
     const float                         PLAYER_VELOCITY{500.0f};
 
-    
+// 球
+private:
+    const glm::vec2 INITIAL_BALL_VELOCITY{100.0f, -350.0f};
+    const float     BALL_RADIUS{12.5f};
+    std::unique_ptr<class BallObject> Ball;
+
+    bool CheckCollision(GameObject& one, GameObject& two);
+    std::tuple<bool, Direction, glm::vec2> CheckCollision(BallObject& one, GameObject& two);
+
 public:
     Game(uint width, uint height);
     ~Game();
@@ -41,6 +59,11 @@ public:
     // 按键设置
     void setKey(uint index, bool state);
     void setGameState(GameState state);
+
+    void DoCollisions();
+
+    void ResetLevel();
+    void ResetPlayer();
 };
 
 #endif

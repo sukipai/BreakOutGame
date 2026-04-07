@@ -25,6 +25,8 @@ public:
 
     bool isCompleted();
 
+    std::vector<GameObject>& bricks() { return Bricks; }
+
 private:
     void init(const std::vector<std::vector<uint>>& tileData, uint levelWidth, uint levelHeight);
 };

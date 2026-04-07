@@ -5,7 +5,7 @@
 #include <string>
 
 class GameObject {
-private:
+protected:
     glm::vec2       m_position, m_size, m_velocity;
     glm::vec3       m_color;
     float           m_rotation;
@@ -20,8 +20,14 @@ public:
 
     void setSolid(bool isSolid);
     void setPosition(glm::vec2 position);
+    void destroy();
+    void setVelocity(glm::vec2 velocity);
+    void setSize(glm::vec2 size);
 
-    bool destroyed()           { return m_destroyed; }
+    void moveBy(float offsetX, float offsetY);
+    void moveBy(glm::vec2 offset);
+
+    bool isDestroyed()           { return m_destroyed; }
     bool isSolid()             { return m_isSolid; }
     glm::vec2 velocity() const { return m_velocity; }
     glm::vec2 position() const { return m_position; }

@@ -81,7 +81,7 @@ void GameLevel::init(const std::vector<std::vector<uint>>& tileData, uint levelW
 
 void GameLevel::Draw(SpriteRenderer& renderer) {
     for (GameObject& tile : this->Bricks) {
-        if (!tile.destroyed()) {
+        if (!tile.isDestroyed()) {
             tile.Draw(renderer);
         }
     }
@@ -89,7 +89,7 @@ void GameLevel::Draw(SpriteRenderer& renderer) {
 
 bool GameLevel::isCompleted() {
     for (GameObject& tile : this->Bricks) {
-        if (!tile.isSolid() && !tile.destroyed()) {
+        if (!tile.isSolid() && !tile.isDestroyed()) {
             return false;
         }
     }
