@@ -1,6 +1,7 @@
 #ifndef __ZSH_ENGINE_GAME_H
 #define __ZSH_ENGINE_GAME_H
 
+#include "ParticleSystem.h"
 #include "glm/fwd.hpp"
 #include <SpriteRenderer.h>
 
@@ -21,13 +22,14 @@ enum class Direction : uint {
 
 class Game {
     using uint = unsigned int;
+// 主窗口和辅助设置
 private:
-    GameState                           State;
-    bool                                Keys[1024];
-    uint                                Width, Height;
-    std::unique_ptr<SpriteRenderer>     renderer;
-    std::vector<class GameLevel>        levels;
-    uint                                level; 
+    GameState                               State;
+    bool                                    Keys[1024]; // 键盘
+    uint                                    Width, Height;
+    std::unique_ptr<SpriteRenderer>         renderer;   // 渲染器
+    std::vector<class GameLevel>            levels;
+    uint                                    level;
 
 // 玩家
 private:

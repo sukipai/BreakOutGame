@@ -40,6 +40,7 @@ add_executable(breakout
     Engine/src/Resource/Resource.cpp
     Engine/src/Graphics/SpriteRenderer.cpp
     Engine/src/Core/log.cpp
+    Engine/src/Graphics/ParticleSystem.cpp
     ${GLAD_ROOT}/src/glad.c
 )
 

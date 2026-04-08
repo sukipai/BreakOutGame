@@ -7,6 +7,8 @@
 #include <GameObject.h>
 #include <BallObject.h>
 #include <GLFW/glfw3.h>
+#include <memory>
+#include <ParticleSystem.h>
 
 static const std::string SHADER_RESOURCES_PATH = "Game/Resources/Shaders/";
 static const std::string TEXTURE_RESOURCES_PATH = "Game/Resources/Textures/";
@@ -26,7 +28,7 @@ void Game::Init() {
         static_cast<float>(this->Height), 0.0f, -1.0f, 1.0f);
 
     if (!spriteShaderOpt.has_value()) {
-        ENGINE_CORE_ERROR("无法加载着色器 sprite");
+        APP_ERROR("Game: 无法加载着色器 sprite");
         exit(0);
     }
 
@@ -71,6 +73,31 @@ void Game::Init() {
     glm::vec2 ballPos = playerPos + glm::vec2(PLAYER_SIZE.x / 2 - BALL_RADIUS, -BALL_RADIUS * 2);
 
     Ball = std::make_unique<BallObject>(ballPos, BALL_RADIUS, INITIAL_BALL_VELOCITY, "face");
+
+    // 粒子着色器
+    auto particleShaderOpt = Engine::ResourceManager::LoadShader("particle", SHADER_RESOURCES_PATH + "particle.vert", SHADER_RESOURCES_PATH + "particle.frag");
+
+    if (!particleShaderOpt.has_value()) {
+        ENGINE_CORE_ERROR("GAME: 无法加载着色器: sprite");
+        exit(0);
+    }
+
+    auto & particleShader = particleShaderOpt->get();
+
+    particleShader.use();
+    particleShader.setInt("sprite", 0);
+    particleShader.setMatrix4f("projection", projection);
+
+    // 粒子纹理
+    auto particleTextureOpt = Engine::ResourceManager::LoadTexture("particle", TEXTURE_RESOURCES_PATH + "particle.png", true);
+
+    if (!particleTextureOpt.has_value()) {
+        APP_ERROR("GAME: 无法找到纹: particle");
+    }
+
+    auto& particleTexture = particleTextureOpt->get();
+
+    ParticleSystem::Initialize(particleShader, particleTexture);
 }
 
 void Game::ProcessInput(float deltaTime) {
@@ -218,6 +245,9 @@ void Game::Update(float deltaTime) {
 
     this->DoCollisions();
 
+    // 更新粒子系统
+    ParticleSystem::Update(deltaTime);
+
     if (Ball->position().y >= this->Height) {
         this->ResetLevel();
         this->ResetPlayer();
@@ -238,6 +268,9 @@ void Game::Render() {
         Player->Draw(*renderer.get());
 
         Ball->Draw(*renderer.get());
+
+        // 渲染粒子系统
+        ParticleSystem::Draw();
     }
 }
 

@@ -3,11 +3,13 @@
 
 #include "Shader.h"
 #include <GameObject.h>
+#include <ParticleSystem.h>
 
 class BallObject : public GameObject {
 private:
     float   Radius;
     bool    Stuck; // 初始时球被固定到板子上面
+    ParticleProps m_TrailParticleProps;
 
 public:
     BallObject();
