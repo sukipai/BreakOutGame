@@ -44,7 +44,7 @@ int main() {
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    glEnable(GL_CULL_FACE);
+    // glEnable(GL_CULL_FACE);  // Temporarily disabled for text rendering
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -54,12 +54,13 @@ int main() {
     ENGINE_CORE_INFO("引擎日志系统初始化成功! ");
 
     game.Init();
-    game.setGameState(GameState::GAME_ACTIVE);
+    // 游戏从菜单状态开始，不需要设置GAME_ACTIVE
+    // game.setGameState(GameState::GAME_ACTIVE);
 
     APP_INFO("Breakout 游戏开始");
 
     auto lastFrameTime = std::chrono::high_resolution_clock::now();
-    while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(window) && !game.shouldQuit()) {
         auto currentFrameTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = currentFrameTime - lastFrameTime;
         deltaTime = duration.count();
@@ -99,10 +100,11 @@ double calcFPS(GLFWwindow* window) {
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GL_TRUE);
-    }
-    
+    // ESC键由游戏逻辑处理，不直接关闭窗口
+    // if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+    //     glfwSetWindowShouldClose(window, GL_TRUE);
+    // }
+
     if (key >= 0 && key <= 1024) {
         if (action == GLFW_PRESS) {
             game.setKey(key, true);

@@ -29,6 +29,7 @@ public:
     void bind(uint slot) const;
     void unbind() const;
     void setTexture(const std::string& path, bool isRGBA = false, bool flip = true);
+    void setTextureFromData(unsigned char* data, int width, int height, int channels = 1);
 
     inline int width() const { return m_width; }
     inline int height() const { return m_height; }

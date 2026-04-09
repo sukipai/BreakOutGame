@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <ParticleSystem.h>
+#include "SimpleFont.h"
 
 static const std::string SHADER_RESOURCES_PATH = "Game/Resources/Shaders/";
 static const std::string TEXTURE_RESOURCES_PATH = "Game/Resources/Textures/";
@@ -16,8 +17,9 @@ static const std::string TEXTURE_RESOURCES_PATH = "Game/Resources/Textures/";
 static Direction VectorDirection(glm::vec2 target);
 
 
-Game::Game(uint width, uint height) : State(GameState::GAME_ACTIVE), Width(width), Height(height), levels(), level(0){
-
+Game::Game(uint width, uint height) : State(GameState::GAME_MENU), Width(width), Height(height), levels(), level(0),
+    menuSelection(0), levelSelection(0), enterPressed(false), escPressed(false), upPressed(false), downPressed(false), leftPressed(false), rightPressed(false) {
+    m_shouldQuit = false;
 }
 
 void Game::Init() {
@@ -98,30 +100,281 @@ void Game::Init() {
     auto& particleTexture = particleTextureOpt->get();
 
     ParticleSystem::Initialize(particleShader, particleTexture);
+
+    // 文本渲染初始化
+    auto textShaderOpt = Engine::ResourceManager::LoadShader("text",
+        SHADER_RESOURCES_PATH + "text.vert",
+        SHADER_RESOURCES_PATH + "text.frag");
+
+    if (!textShaderOpt.has_value()) {
+        APP_ERROR("Game: 无法加载文本着色器");
+        exit(0);
+    }
+
+    Shader& textShader = textShaderOpt->get();
+    textShader.use();
+    textShader.setInt("text", 0);
+    textShader.setMatrix4f("projection", projection);
+
+    // 加载字体
+    auto fontOpt = Engine::ResourceManager::LoadFont("main",
+        "Game/Resources/Fonts/Arial Unicode.ttf", 48);
+
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game: 无法加载字体");
+        exit(0);
+    }
+
+    textRenderer = std::make_unique<TextRenderer>(textShader, projection);
+
+    // 初始化菜单标题字体示例
+    Font& font = fontOpt->get();
+    m_menuTitleFont = std::make_unique<SimpleFont>(
+        *textRenderer, font, "Breakout Menu", glm::vec3(1.0f, 0.8f, 0.2f), 1.2f);
 }
 
 void Game::ProcessInput(float deltaTime) {
-    if (this->State == GameState::GAME_ACTIVE) {
-        glm::vec2 velocity = Player->velocity() * deltaTime;
-        glm::vec2 player_position = Player->position();
-        glm::vec2 player_size = Player->size();
+    switch (this->State) {
+        case GameState::GAME_ACTIVE:
+        {
+            glm::vec2 velocity = Player->velocity() * deltaTime;
+            glm::vec2 player_position = Player->position();
+            glm::vec2 player_size = Player->size();
 
-        if (this->Keys[GLFW_KEY_A]) {
-            player_position -= velocity;
-            if (player_position.x < 0) player_position.x = 0;
-            else if (Ball->isStucked()) Ball->setPosition(Ball->position() - velocity);
+            if (this->Keys[GLFW_KEY_A]) {
+                player_position -= velocity;
+                if (player_position.x < 0) player_position.x = 0;
+                else if (Ball->isStucked()) Ball->setPosition(Ball->position() - velocity);
+            }
+
+            if (this->Keys[GLFW_KEY_D]) {
+                player_position += velocity;
+                if (player_position.x + player_size.x > this->Width) player_position.x = this->Width - player_size.x;
+                else if (Ball->isStucked()) Ball->setPosition(Ball->position() + velocity);
+            }
+
+            Player->setPosition(player_position);
+
+            if (this->Keys[GLFW_KEY_SPACE]) {
+                Ball->launch();
+            }
+
+            // ESC键暂停游戏
+            if (this->Keys[GLFW_KEY_ESCAPE] && !escPressed) {
+                escPressed = true;
+                PauseGame();
+            } else if (!this->Keys[GLFW_KEY_ESCAPE]) {
+                escPressed = false;
+            }
+            break;
         }
 
-        if (this->Keys[GLFW_KEY_D]) {
-            player_position += velocity;
-            if (player_position.x + player_size.x > this->Width) player_position.x = this->Width - player_size.x;
-            else if (Ball->isStucked()) Ball->setPosition(Ball->position() + velocity);
+        case GameState::GAME_MENU:
+        {
+            // 上下导航
+            if (this->Keys[GLFW_KEY_UP] && !upPressed) {
+                upPressed = true;
+                menuSelection = (menuSelection - 1 + 3) % 3; // 3个菜单选项
+            } else if (!this->Keys[GLFW_KEY_UP]) {
+                upPressed = false;
+            }
+
+            if (this->Keys[GLFW_KEY_DOWN] && !downPressed) {
+                downPressed = true;
+                menuSelection = (menuSelection + 1) % 3;
+            } else if (!this->Keys[GLFW_KEY_DOWN]) {
+                downPressed = false;
+            }
+
+            // Enter键选择
+            if (this->Keys[GLFW_KEY_ENTER] && !enterPressed) {
+                enterPressed = true;
+                switch (menuSelection) {
+                    case 0: // 开始游戏
+                        SelectLevel(0); // 默认第一关
+                        break;
+                    case 1: // 选择关卡
+                        setGameState(GameState::LEVEL_SELECT);
+                        levelSelection = 0;
+                        break;
+                    case 2: // 退出游戏
+                        m_shouldQuit = true;
+                        break;
+                }
+            } else if (!this->Keys[GLFW_KEY_ENTER]) {
+                enterPressed = false;
+            }
+
+            // ESC键退出游戏
+            if (this->Keys[GLFW_KEY_ESCAPE] && !escPressed) {
+                escPressed = true;
+                m_shouldQuit = true;
+            } else if (!this->Keys[GLFW_KEY_ESCAPE]) {
+                escPressed = false;
+            }
+            break;
         }
 
-        Player->setPosition(player_position);
+        case GameState::LEVEL_SELECT:
+        {
+            // 方向键导航
+            if (this->Keys[GLFW_KEY_LEFT] && !leftPressed) {
+                leftPressed = true;
+                levelSelection = (levelSelection - 1 + 5) % 5; // 4个关卡 + 返回按钮
+            } else if (!this->Keys[GLFW_KEY_LEFT]) {
+                leftPressed = false;
+            }
 
-        if (this->Keys[GLFW_KEY_SPACE]) {
-            Ball->launch();
+            if (this->Keys[GLFW_KEY_RIGHT] && !rightPressed) {
+                rightPressed = true;
+                levelSelection = (levelSelection + 1) % 5;
+            } else if (!this->Keys[GLFW_KEY_RIGHT]) {
+                rightPressed = false;
+            }
+
+            if (this->Keys[GLFW_KEY_UP] && !upPressed) {
+                upPressed = true;
+                levelSelection = (levelSelection - 2 + 5) % 5;
+            } else if (!this->Keys[GLFW_KEY_UP]) {
+                upPressed = false;
+            }
+
+            if (this->Keys[GLFW_KEY_DOWN] && !downPressed) {
+                downPressed = true;
+                levelSelection = (levelSelection + 2) % 5;
+            } else if (!this->Keys[GLFW_KEY_DOWN]) {
+                downPressed = false;
+            }
+
+            // Enter键选择
+            if (this->Keys[GLFW_KEY_ENTER] && !enterPressed) {
+                enterPressed = true;
+                if (levelSelection < 4) {
+                    SelectLevel(levelSelection);
+                } else {
+                    // 返回主菜单
+                    setGameState(GameState::GAME_MENU);
+                    menuSelection = 1; // 高亮"选择关卡"选项
+                }
+            } else if (!this->Keys[GLFW_KEY_ENTER]) {
+                enterPressed = false;
+            }
+
+            // ESC键返回主菜单
+            if (this->Keys[GLFW_KEY_ESCAPE] && !escPressed) {
+                escPressed = true;
+                setGameState(GameState::GAME_MENU);
+                menuSelection = 1;
+            } else if (!this->Keys[GLFW_KEY_ESCAPE]) {
+                escPressed = false;
+            }
+            break;
+        }
+
+        case GameState::PAUSED:
+        {
+            // 上下导航
+            if (this->Keys[GLFW_KEY_UP] && !upPressed) {
+                upPressed = true;
+                menuSelection = (menuSelection - 1 + 4) % 4; // 4个暂停菜单选项
+            } else if (!this->Keys[GLFW_KEY_UP]) {
+                upPressed = false;
+            }
+
+            if (this->Keys[GLFW_KEY_DOWN] && !downPressed) {
+                downPressed = true;
+                menuSelection = (menuSelection + 1) % 4;
+            } else if (!this->Keys[GLFW_KEY_DOWN]) {
+                downPressed = false;
+            }
+
+            // Enter键选择
+            if (this->Keys[GLFW_KEY_ENTER] && !enterPressed) {
+                enterPressed = true;
+                switch (menuSelection) {
+                    case 0: // 继续游戏
+                        ResumeGame();
+                        break;
+                    case 1: // 重新开始
+                        ResetLevel();
+                        ResetPlayer();
+                        ResumeGame();
+                        break;
+                    case 2: // 返回主菜单
+                        GoToMainMenu();
+                        break;
+                    case 3: // 退出游戏
+                        m_shouldQuit = true;
+                        break;
+                }
+            } else if (!this->Keys[GLFW_KEY_ENTER]) {
+                enterPressed = false;
+            }
+
+            // ESC键继续游戏
+            if (this->Keys[GLFW_KEY_ESCAPE] && !escPressed) {
+                escPressed = true;
+                ResumeGame();
+            } else if (!this->Keys[GLFW_KEY_ESCAPE]) {
+                escPressed = false;
+            }
+            break;
+        }
+
+        case GameState::GAME_OVER:
+        case GameState::GAME_WIN:
+        {
+            // 上下导航
+            if (this->Keys[GLFW_KEY_UP] && !upPressed) {
+                upPressed = true;
+                menuSelection = (menuSelection - 1 + 2) % 2; // 2个选项
+            } else if (!this->Keys[GLFW_KEY_UP]) {
+                upPressed = false;
+            }
+
+            if (this->Keys[GLFW_KEY_DOWN] && !downPressed) {
+                downPressed = true;
+                menuSelection = (menuSelection + 1) % 2;
+            } else if (!this->Keys[GLFW_KEY_DOWN]) {
+                downPressed = false;
+            }
+
+            // Enter键选择
+            if (this->Keys[GLFW_KEY_ENTER] && !enterPressed) {
+                enterPressed = true;
+                if (this->State == GameState::GAME_OVER) {
+                    switch (menuSelection) {
+                        case 0: // 重新开始
+                            ResetLevel();
+                            ResetPlayer();
+                            StartGame();
+                            break;
+                        case 1: // 返回主菜单
+                            GoToMainMenu();
+                            break;
+                    }
+                } else { // GAME_WIN
+                    switch (menuSelection) {
+                        case 0: // 下一关卡
+                            NextLevel();
+                            break;
+                        case 1: // 返回主菜单
+                            GoToMainMenu();
+                            break;
+                    }
+                }
+            } else if (!this->Keys[GLFW_KEY_ENTER]) {
+                enterPressed = false;
+            }
+
+            // ESC键返回主菜单
+            if (this->Keys[GLFW_KEY_ESCAPE] && !escPressed) {
+                escPressed = true;
+                GoToMainMenu();
+            } else if (!this->Keys[GLFW_KEY_ESCAPE]) {
+                escPressed = false;
+            }
+            break;
         }
     }
 }
@@ -241,6 +494,10 @@ void Game::DoCollisions() {
 }
 
 void Game::Update(float deltaTime) {
+    if (this->State != GameState::GAME_ACTIVE) {
+        return; // 只在游戏进行中更新
+    }
+
     Ball->Move(deltaTime, this->Width);
 
     this->DoCollisions();
@@ -248,29 +505,70 @@ void Game::Update(float deltaTime) {
     // 更新粒子系统
     ParticleSystem::Update(deltaTime);
 
+    // 检查游戏结束条件
     if (Ball->position().y >= this->Height) {
-        this->ResetLevel();
-        this->ResetPlayer();
+        this->State = GameState::GAME_OVER;
+        menuSelection = 0;
+        return;
     }
+
+    // 检查胜利条件
+    CheckWinCondition();
 }
 
 void Game::Render() {
-    if (this->State == GameState::GAME_ACTIVE) {
-        auto background = Engine::ResourceManager::GetTexture("background");
-        if (background.has_value()) {
-            renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f));
-        } else {
-            APP_ERROR("Game::Render: 没有找到背景图片");
+    switch (this->State) {
+        case GameState::GAME_ACTIVE:
+        {
+            auto background = Engine::ResourceManager::GetTexture("background");
+            if (background.has_value()) {
+                renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+            } else {
+                APP_ERROR("Game::Render: 没有找到背景图片");
+            }
+
+            levels[level].Draw(*renderer.get());
+
+            Player->Draw(*renderer.get());
+
+            Ball->Draw(*renderer.get());
+
+            // 渲染粒子系统
+            ParticleSystem::Draw();
+            break;
         }
 
-        levels[level].Draw(*renderer.get());
+        case GameState::GAME_MENU:
+            RenderMainMenu();
+            break;
 
-        Player->Draw(*renderer.get());
+        case GameState::LEVEL_SELECT:
+            RenderLevelSelect();
+            break;
 
-        Ball->Draw(*renderer.get());
+        case GameState::PAUSED:
+            // 先渲染游戏画面，再渲染暂停菜单
+            {
+                auto background = Engine::ResourceManager::GetTexture("background");
+                if (background.has_value()) {
+                    renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+                }
 
-        // 渲染粒子系统
-        ParticleSystem::Draw();
+                levels[level].Draw(*renderer.get());
+                Player->Draw(*renderer.get());
+                Ball->Draw(*renderer.get());
+                ParticleSystem::Draw();
+            }
+            RenderPauseMenu();
+            break;
+
+        case GameState::GAME_OVER:
+            RenderGameOver();
+            break;
+
+        case GameState::GAME_WIN:
+            RenderWinScreen();
+            break;
     }
 }
 
@@ -328,4 +626,327 @@ static Direction VectorDirection(glm::vec2 target) {
     }
 
     return best_match;
+}
+
+// ==================== 状态转换方法 ====================
+
+void Game::StartGame() {
+    this->State = GameState::GAME_ACTIVE;
+    menuSelection = 0;
+}
+
+void Game::PauseGame() {
+    this->State = GameState::PAUSED;
+    menuSelection = 0;
+}
+
+void Game::ResumeGame() {
+    this->State = GameState::GAME_ACTIVE;
+}
+
+void Game::GoToMainMenu() {
+    this->State = GameState::GAME_MENU;
+    menuSelection = 0;
+    levelSelection = 0;
+}
+
+void Game::SelectLevel(uint levelIndex) {
+    if (levelIndex < levels.size()) {
+        this->level = levelIndex;
+        ResetLevel();
+        ResetPlayer();
+        StartGame();
+    }
+}
+
+void Game::NextLevel() {
+    if (level + 1 < levels.size()) {
+        level++;
+        ResetLevel();
+        ResetPlayer();
+        StartGame();
+    } else {
+        // 所有关卡完成，返回主菜单
+        GoToMainMenu();
+    }
+}
+
+void Game::CheckGameOver() {
+    // 在Update中检查球是否掉落
+    // 这个方法在Update中调用
+}
+
+void Game::CheckWinCondition() {
+    // 检查当前关卡是否所有砖块都被摧毁
+    bool levelCompleted = true;
+    for (const auto& brick : levels[level].bricks()) {
+        if (!brick.isDestroyed() && !brick.isSolid()) {
+            levelCompleted = false;
+            break;
+        }
+    }
+
+    if (levelCompleted) {
+        this->State = GameState::GAME_WIN;
+        menuSelection = 0;
+    }
+}
+
+// ==================== 菜单渲染方法 ====================
+
+void Game::RenderMainMenu() {
+    // 绘制菜单背景
+    auto background = Engine::ResourceManager::GetTexture("background");
+    if (background.has_value()) {
+        renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+
+    // 检查文本渲染器是否可用
+    if (!textRenderer) {
+        APP_ERROR("Game::RenderMainMenu: 文本渲染器未初始化");
+        return;
+    }
+
+    auto fontOpt = Engine::ResourceManager::GetFont("main");
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game::RenderMainMenu: 未找到字体");
+        return;
+    }
+
+    Font& font = fontOpt->get();
+
+    // 使用SimpleFont示例渲染菜单标题
+    if (m_menuTitleFont) {
+        std::string title = "BREAKOUT";
+        m_menuTitleFont->setText(title);
+        float titleWidth = m_menuTitleFont->getTextWidth();
+        float titleX = this->Width / 2.0f - titleWidth / 2.0f;
+        float titleY = this->Height / 2.0f - 200.0f;
+        m_menuTitleFont->draw(glm::vec2(titleX, titleY));
+    }
+
+    // 三个菜单选项 (使用SimpleFont局部对象)
+    const char* menuItems[] = {"Start Game", "Select Level", "Quit"};
+    float startY = this->Height / 2.0f - 100.0f;
+    float spacing = 60.0f;
+
+    for (int i = 0; i < 3; i++) {
+        // 高亮选中的选项
+        glm::vec3 color = (i == menuSelection) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+
+        // 使用SimpleFont局部对象
+        SimpleFont menuItemFont(*textRenderer, font, menuItems[i], color, 1.0f);
+
+        // 计算文本宽度以居中
+        float textWidth = menuItemFont.getTextWidth();
+        float x = this->Width / 2.0f - textWidth / 2.0f;
+        float y = startY + i * spacing;
+
+        // 使用SimpleFont的draw方法渲染
+        menuItemFont.draw(glm::vec2(x, y));
+    }
+}
+
+void Game::RenderLevelSelect() {
+    // 绘制背景
+    auto background = Engine::ResourceManager::GetTexture("background");
+    if (background.has_value()) {
+        renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+
+    // 检查文本渲染器是否可用
+    if (!textRenderer) {
+        APP_ERROR("Game::RenderLevelSelect: 文本渲染器未初始化");
+        return;
+    }
+
+    auto fontOpt = Engine::ResourceManager::GetFont("main");
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game::RenderLevelSelect: 未找到字体");
+        return;
+    }
+
+    Font& font = fontOpt->get();
+
+    // 添加关卡选择标题（使用SimpleFont）
+    SimpleFont titleFont(*textRenderer, font, "Select Level", glm::vec3(0.9f, 0.9f, 0.3f), 1.5f);
+    float titleWidth = titleFont.getTextWidth();
+    float titleX = this->Width / 2.0f - titleWidth / 2.0f;
+    float titleY = this->Height / 2.0f - 200.0f;
+    titleFont.draw(glm::vec2(titleX, titleY));
+
+    // 4个关卡按钮位置
+    float startX = this->Width / 2.0f - 200.0f;
+    float startY = this->Height / 2.0f - 100.0f;
+    float spacing = 100.0f;
+
+    // 关卡编号
+    const char* levelNumbers[] = {"1", "2", "3", "4"};
+
+    for (int i = 0; i < 4; i++) {
+        int row = i / 2;
+        int col = i % 2;
+
+        float x = startX + col * spacing;
+        float y = startY + row * spacing;
+
+        glm::vec3 color = (i == levelSelection) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+
+        // 使用SimpleFont局部对象
+        SimpleFont levelFont(*textRenderer, font, levelNumbers[i], color, 1.0f);
+
+        // 计算文本居中
+        float textWidth = levelFont.getTextWidth();
+        float textX = x - textWidth / 2.0f + spacing / 2.0f;
+        float textY = y;
+
+        // 使用SimpleFont的draw方法渲染
+        levelFont.draw(glm::vec2(textX, textY));
+    }
+
+    // 返回按钮（使用SimpleFont）
+    float backButtonY = startY + 2 * spacing + 40.0f;
+    std::string backText = "Back";
+    glm::vec3 backColor = (levelSelection == 4) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+    SimpleFont backButtonFont(*textRenderer, font, backText, backColor, 1.0f);
+    float backTextWidth = backButtonFont.getTextWidth();
+    float backButtonX = this->Width / 2.0f - backTextWidth / 2.0f;
+
+    backButtonFont.draw(glm::vec2(backButtonX, backButtonY));
+}
+
+void Game::RenderPauseMenu() {
+    // 检查文本渲染器是否可用
+    if (!textRenderer) {
+        APP_ERROR("Game::RenderPauseMenu: 文本渲染器未初始化");
+        return;
+    }
+
+    auto fontOpt = Engine::ResourceManager::GetFont("main");
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game::RenderPauseMenu: 未找到字体");
+        return;
+    }
+
+    Font& font = fontOpt->get();
+
+    // 半透明覆盖层（使用黑色块纹理，颜色为深灰色）
+    auto buttonTexture = Engine::ResourceManager::GetTexture("block");
+    if (buttonTexture.has_value()) {
+        renderer->DrawSprite(buttonTexture->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(0.0f, 0.0f, 0.0f));
+    }
+
+    const char* menuItems[] = {"Resume", "Restart", "Main Menu", "Quit"};
+    float startY = this->Height / 2.0f - 120.0f;
+    float spacing = 60.0f;
+
+    for (int i = 0; i < 4; i++) {
+        glm::vec3 color = (i == menuSelection) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+
+        // 计算文本宽度以居中
+        std::string text = menuItems[i];
+        float textWidth = font.getTextWidth(text, 1.0f);
+        float x = this->Width / 2.0f - textWidth / 2.0f;
+        float y = startY + i * spacing;
+
+        textRenderer->renderText(font, text, glm::vec2(x, y), 1.0f, color);
+    }
+}
+
+void Game::RenderGameOver() {
+    // 背景
+    auto background = Engine::ResourceManager::GetTexture("background");
+    if (background.has_value()) {
+        renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+
+    // 检查文本渲染器是否可用
+    if (!textRenderer) {
+        APP_ERROR("Game::RenderGameOver: 文本渲染器未初始化");
+        return;
+    }
+
+    auto fontOpt = Engine::ResourceManager::GetFont("main");
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game::RenderGameOver: 未找到字体");
+        return;
+    }
+
+    Font& font = fontOpt->get();
+
+    // 半透明红色覆盖层
+    auto buttonTexture = Engine::ResourceManager::GetTexture("block");
+    if (buttonTexture.has_value()) {
+        renderer->DrawSprite(buttonTexture->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 0.0f, 0.0f));
+    }
+
+    // 游戏结束标题
+    std::string title = "Game Over";
+    float titleWidth = font.getTextWidth(title, 1.5f);
+    float titleX = this->Width / 2.0f - titleWidth / 2.0f;
+    float titleY = this->Height / 2.0f - 100.0f;
+    textRenderer->renderText(font, title, glm::vec2(titleX, titleY), 1.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+
+    // 选项按钮
+    const char* options[] = {"Restart", "Main Menu"};
+    float startY = this->Height / 2.0f;
+    float spacing = 60.0f;
+
+    for (int i = 0; i < 2; i++) {
+        glm::vec3 color = (i == menuSelection) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+        std::string text = options[i];
+        float textWidth = font.getTextWidth(text, 1.0f);
+        float x = this->Width / 2.0f - textWidth / 2.0f;
+        float y = startY + i * spacing;
+        textRenderer->renderText(font, text, glm::vec2(x, y), 1.0f, color);
+    }
+}
+
+void Game::RenderWinScreen() {
+    // 背景
+    auto background = Engine::ResourceManager::GetTexture("background");
+    if (background.has_value()) {
+        renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+
+    // 检查文本渲染器是否可用
+    if (!textRenderer) {
+        APP_ERROR("Game::RenderWinScreen: 文本渲染器未初始化");
+        return;
+    }
+
+    auto fontOpt = Engine::ResourceManager::GetFont("main");
+    if (!fontOpt.has_value()) {
+        APP_ERROR("Game::RenderWinScreen: 未找到字体");
+        return;
+    }
+
+    Font& font = fontOpt->get();
+
+    // 半透明绿色覆盖层
+    auto buttonTexture = Engine::ResourceManager::GetTexture("block");
+    if (buttonTexture.has_value()) {
+        renderer->DrawSprite(buttonTexture->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+
+    // 胜利标题
+    std::string title = "You Win!";
+    float titleWidth = font.getTextWidth(title, 1.5f);
+    float titleX = this->Width / 2.0f - titleWidth / 2.0f;
+    float titleY = this->Height / 2.0f - 100.0f;
+    textRenderer->renderText(font, title, glm::vec2(titleX, titleY), 1.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+
+    // 选项按钮
+    const char* options[] = {"Next Level", "Main Menu"};
+    float startY = this->Height / 2.0f;
+    float spacing = 60.0f;
+
+    for (int i = 0; i < 2; i++) {
+        glm::vec3 color = (i == menuSelection) ? glm::vec3(1.0f, 0.5f, 0.0f) : glm::vec3(0.8f, 0.8f, 0.8f);
+        std::string text = options[i];
+        float textWidth = font.getTextWidth(text, 1.0f);
+        float x = this->Width / 2.0f - textWidth / 2.0f;
+        float y = startY + i * spacing;
+        textRenderer->renderText(font, text, glm::vec2(x, y), 1.0f, color);
+    }
 }

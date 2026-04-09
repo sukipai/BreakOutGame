@@ -113,7 +113,7 @@ void Texture::setTexture(const std::string& path, bool isRGBA, bool flip) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
     glBindTexture(GL_TEXTURE_2D, m_rendererID);
@@ -150,4 +150,39 @@ void Texture::setTexture(const std::string& path, bool isRGBA, bool flip) {
 Texture::~Texture() {
     if (m_rendererID == 0) return;
     glDeleteTextures(1, &m_rendererID);
+}
+
+void Texture::setTextureFromData(unsigned char* data, int width, int height, int channels) {
+    // 如果纹理ID不存在，创建新纹理
+    if (m_rendererID == 0) {
+        glGenTextures(1, &m_rendererID);
+        glBindTexture(GL_TEXTURE_2D, m_rendererID);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, m_rendererID);
+
+    m_width = width;
+    m_height = height;
+    m_channels = channels;
+    m_filePath = ""; // 无文件路径
+
+    // 设置像素存储模式
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // 确定通道格式
+    GLenum format = GL_RED;
+    if (channels == 1) format = GL_RED;
+    else if (channels == 3) format = GL_RGB;
+    else if (channels == 4) format = GL_RGBA;
+
+    // 上传纹理数据
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    m_hasImage = true;
 }

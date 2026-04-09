@@ -27,8 +27,8 @@ public:
     void moveBy(float offsetX, float offsetY);
     void moveBy(glm::vec2 offset);
 
-    bool isDestroyed()           { return m_destroyed; }
-    bool isSolid()             { return m_isSolid; }
+    bool isDestroyed() const           { return m_destroyed; }
+    bool isSolid()     const           { return m_isSolid; }
     glm::vec2 velocity() const { return m_velocity; }
     glm::vec2 position() const { return m_position; }
     glm::vec2 size()     const { return m_size; }

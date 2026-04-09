@@ -1,14 +1,19 @@
 #ifndef __ZSH_ENGINE_GAME_H
 #define __ZSH_ENGINE_GAME_H
 
-#include "ParticleSystem.h"
 #include "glm/fwd.hpp"
 #include <SpriteRenderer.h>
+#include <TextRenderer.h>
+#include <Resource.h>
+#include "SimpleFont.h"
 
 enum class GameState : int {
-    GAME_ACTIVE,
-    GAME_MENU,
-    GAME_WIN
+    GAME_MENU,       // 主菜单
+    LEVEL_SELECT,    // 关卡选择
+    GAME_ACTIVE,     // 游戏进行中
+    PAUSED,          // 暂停
+    GAME_OVER,       // 游戏结束
+    GAME_WIN         // 胜利
 };
 
 enum class Direction : uint {
@@ -28,8 +33,22 @@ private:
     bool                                    Keys[1024]; // 键盘
     uint                                    Width, Height;
     std::unique_ptr<SpriteRenderer>         renderer;   // 渲染器
+    std::unique_ptr<TextRenderer>           textRenderer; // 文本渲染器
     std::vector<class GameLevel>            levels;
     uint                                    level;
+
+// 菜单状态
+private:
+    int                                     menuSelection;      // 当前菜单选项索引
+    int                                     levelSelection;     // 关卡选择索引
+    bool                                    enterPressed;       // Enter键按下状态
+    bool                                    escPressed;         // ESC键按下状态
+    bool                                    upPressed;          // 上键按下状态
+    bool                                    downPressed;        // 下键按下状态
+    bool                                    leftPressed;        // 左键按下状态
+    bool                                    rightPressed;       // 右键按下状态
+    bool                                    m_shouldQuit;       // 是否应该退出游戏
+    std::unique_ptr<SimpleFont>             m_menuTitleFont;    // 菜单标题字体示例
 
 // 玩家
 private:
@@ -62,10 +81,29 @@ public:
     void setKey(uint index, bool state);
     void setGameState(GameState state);
 
+    // 菜单和状态管理
+    void StartGame();
+    void PauseGame();
+    void ResumeGame();
+    void GoToMainMenu();
+    void SelectLevel(uint levelIndex);
+    void NextLevel();
+    void CheckGameOver();
+    void CheckWinCondition();
+
+    // 菜单渲染
+    void RenderMainMenu();
+    void RenderLevelSelect();
+    void RenderPauseMenu();
+    void RenderGameOver();
+    void RenderWinScreen();
+
     void DoCollisions();
 
     void ResetLevel();
     void ResetPlayer();
+
+    bool shouldQuit() const { return m_shouldQuit; }
 };
 
 #endif

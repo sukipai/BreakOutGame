@@ -14,6 +14,9 @@ set(GLAD_ROOT /Users/sukipai/Code/CPPLibraries/glad)
 set(STB_IMAGE /Users/sukipai/Code/CPPLibraries/stbImage)
 set(GLM /Users/sukipai/Code/CPPLibraries/glm)
 set(ENGINE_DIR ${CMAKE_SOURCE_DIR}/Engine)
+set(FREETYPE_ROOT /Users/sukipai/Code/CPPLibraries/freeType)
+set(FREETYPE_INCLUDE_DIR ${FREETYPE_ROOT}/include/freetype2)
+set(FREETYPE_LIBRARY ${FREETYPE_ROOT}/lib/libfreetype.a)
 
 find_package(assimp REQUIRED)
 find_package(spdlog REQUIRED)
@@ -41,6 +44,8 @@ add_executable(breakout
     Engine/src/Graphics/SpriteRenderer.cpp
     Engine/src/Core/log.cpp
     Engine/src/Graphics/ParticleSystem.cpp
+    Engine/src/Graphics/Font.cpp
+    Engine/src/Graphics/TextRenderer.cpp
     ${GLAD_ROOT}/src/glad.c
 )
 
@@ -54,11 +59,13 @@ target_include_directories(breakout
         ${GLAD_ROOT}/include
         ${STB_IMAGE}/include
         ${GLM}
+        ${FREETYPE_INCLUDE_DIR}
 )
 
 target_link_libraries(breakout
     PRIVATE
         ${GLFW_LIBRARY}
+        ${FREETYPE_LIBRARY}
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
@@ -66,4 +73,6 @@ target_link_libraries(breakout
         assimp::assimp
         # 【关键修改 2】：链接 spdlog_header_only，彻底抛弃 .dylib 文件
         spdlog::spdlog_header_only
+        bz2
+        z
 )
