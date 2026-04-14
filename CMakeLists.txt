@@ -30,6 +30,7 @@ add_executable(breakout
     Game/src/GameObject.cpp
     Game/src/GameLevel.cpp
     Game/src/BallObject.cpp
+    Game/src/PowerUp.cpp
     Engine/src/Graphics/Shader.cpp
     Engine/src/Graphics/VertexBuffer.cpp
     Engine/src/Graphics/IndexBuffer.cpp
