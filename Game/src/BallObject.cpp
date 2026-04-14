@@ -34,7 +34,7 @@ glm::vec2 BallObject::Move(float deltaTime, uint window_width) {
             this->m_position.y = 0.0f;
         }
 
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 2; ++i) {
             m_TrailParticleProps.Position = this->m_position + this->m_size / 2.0f;
             m_TrailParticleProps.Velocity = -this->m_velocity * 0.5f;
             ParticleSystem::Emit(m_TrailParticleProps);

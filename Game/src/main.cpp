@@ -53,7 +53,12 @@ int main() {
 
     ENGINE_CORE_INFO("引擎日志系统初始化成功! ");
 
-    game.Init();
+    int fbWidth, fbHeight;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    glViewport(0, 0, fbWidth, fbHeight);
+
+    game.setWindowSize(fbWidth, fbHeight); // 先设置正确的尺寸
+    game.Init(); // 再初始化，这样内部的投影矩阵和后期处理就会用正确的大小
     // 游戏从菜单状态开始，不需要设置GAME_ACTIVE
     // game.setGameState(GameState::GAME_ACTIVE);
 

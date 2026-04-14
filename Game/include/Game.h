@@ -31,11 +31,13 @@ class Game {
 private:
     GameState                               State;
     bool                                    Keys[1024]; // 键盘
-    uint                                    Width, Height;
+    uint                                    Width, Height;     // 逻辑坐标尺寸（如 800x600）
+    uint                                    FBWidth, FBHeight; // 物理像素尺寸（如 1600x1200）
     std::unique_ptr<SpriteRenderer>         renderer;   // 渲染器
     std::unique_ptr<TextRenderer>           textRenderer; // 文本渲染器
     std::vector<class GameLevel>            levels;
     uint                                    level;
+    float                                   deltaTime; 
 
 // 菜单状态
 private:
@@ -64,6 +66,11 @@ private:
 
     bool CheckCollision(GameObject& one, GameObject& two);
     std::tuple<bool, Direction, glm::vec2> CheckCollision(BallObject& one, GameObject& two);
+
+// 后期处理
+private:
+    std::unique_ptr<class PostProcessor> Effects;
+    float shakeTime = 0.0f;
 
 public:
     Game(uint width, uint height);
@@ -104,6 +111,11 @@ public:
     void ResetPlayer();
 
     bool shouldQuit() const { return m_shouldQuit; }
+
+    void setWindowSize(uint width, uint height) {
+        this->FBWidth = width;
+        this->FBHeight = height;
+    }
 };
 
 #endif

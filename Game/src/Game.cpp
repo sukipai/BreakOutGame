@@ -10,6 +10,7 @@
 #include <memory>
 #include <ParticleSystem.h>
 #include "SimpleFont.h"
+#include <PostProcessor.h>
 
 static const std::string SHADER_RESOURCES_PATH = "Game/Resources/Shaders/";
 static const std::string TEXTURE_RESOURCES_PATH = "Game/Resources/Textures/";
@@ -131,6 +132,19 @@ void Game::Init() {
     Font& font = fontOpt->get();
     m_menuTitleFont = std::make_unique<SimpleFont>(
         *textRenderer, font, "Breakout Menu", glm::vec3(1.0f, 0.8f, 0.2f), 1.2f);
+
+    // 初始化后期处理
+    auto postProcessingShaderOpt = Engine::ResourceManager::LoadShader("postprocessing",
+        SHADER_RESOURCES_PATH + "postProcessor.vert",
+        SHADER_RESOURCES_PATH + "postProcessor.frag"
+    );
+
+    if (!postProcessingShaderOpt.has_value()) {
+        APP_ERROR("Game: 无法加载后期处理着色器");
+        exit(0);
+    }
+
+    Effects = std::make_unique<PostProcessor>(postProcessingShaderOpt->get(), this->FBWidth, this->FBHeight);
 }
 
 void Game::ProcessInput(float deltaTime) {
@@ -436,6 +450,11 @@ void Game::DoCollisions() {
         if (!box.isSolid()) {
             box.destroy();
         }
+        else {
+            // 撞到了固体的方块
+            shakeTime = 0.05f; // 设置震动时间
+            Effects->Shake(true);
+        }
   
         auto ballVelocity = Ball->velocity();
         if (direction == Direction::LEFT || direction == Direction::RIGHT) {
@@ -494,6 +513,7 @@ void Game::DoCollisions() {
 }
 
 void Game::Update(float deltaTime) {
+    this->deltaTime = deltaTime;
     if (this->State != GameState::GAME_ACTIVE) {
         return; // 只在游戏进行中更新
     }
@@ -514,12 +534,22 @@ void Game::Update(float deltaTime) {
 
     // 检查胜利条件
     CheckWinCondition();
+
+    if (shakeTime > 0.0f) {
+        shakeTime -= deltaTime;
+        if (shakeTime <= 0.0f) {
+            shakeTime = 0.0f;
+            Effects->Shake(false);
+        }
+    }
 }
 
 void Game::Render() {
     switch (this->State) {
         case GameState::GAME_ACTIVE:
         {
+            Effects->BeginRender();
+
             auto background = Engine::ResourceManager::GetTexture("background");
             if (background.has_value()) {
                 renderer->DrawSprite(background->get(), glm::vec2(0.0f), glm::vec2(this->Width, this->Height), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -535,6 +565,8 @@ void Game::Render() {
 
             // 渲染粒子系统
             ParticleSystem::Draw();
+            Effects->EndRender();
+            Effects->Render(deltaTime);
             break;
         }
 

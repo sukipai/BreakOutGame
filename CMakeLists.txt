@@ -46,6 +46,7 @@ add_executable(breakout
     Engine/src/Graphics/ParticleSystem.cpp
     Engine/src/Graphics/Font.cpp
     Engine/src/Graphics/TextRenderer.cpp
+    Engine/src/Graphics/PostProcessor.cpp
     ${GLAD_ROOT}/src/glad.c
 )
 
